@@ -1,0 +1,38 @@
+task verificationURL() {
+
+    def serverConfig = !project.hasProperty("url") ? "NO_VALUE" : project.property("url")
+
+    if (serverConfig.toString().equals("NO_VALUE")) {
+
+        return
+
+    }
+
+    if (!new URL(serverConfig as String)) {
+
+        throw new GradleException(project.property("INVALID_URL") as String)
+
+    }
+
+    try {
+
+        def templateConfigServer = new File("src/main/resources/gradle/config-server-register-template")
+        def recoveryParameter = templateConfigServer
+                .text
+                .replace("CONFIGURATION_SERVER_URL", serverConfig)
+        def configServerGenerated = new File("src/main/resources/gradle/config-server-register.json")
+        configServerGenerated.text = recoveryParameter
+
+    }
+    catch (FileNotFoundException fileException) {
+
+        throw new GradleException((project.property("INVALID_CONTENT_FILE_NOT_FOUND") as String) + serverConfig)
+
+    }
+    catch (Throwable exception) {
+
+        throw exception
+
+    }
+
+}

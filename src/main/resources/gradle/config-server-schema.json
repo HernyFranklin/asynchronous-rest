@@ -1,0 +1,124 @@
+{
+  "$schema": "http://json-schema.org/draft/2019-09/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "opentracing",
+    "spring"
+  ],
+  "properties": {
+    "opentracing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "jaeger"
+      ],
+      "properties": {
+        "jaeger": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "udp-sender"
+          ],
+          "properties": {
+            "udp-sender": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "host",
+                "port"
+              ],
+              "properties": {
+                "host": {
+                  "type": "string"
+                },
+                "port": {
+                  "type": "number",
+                  "minimum": 3000
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "spring": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rabbitmq",
+        "cloud"
+      ],
+      "properties": {
+        "rabbitmq": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "host",
+            "port",
+            "username",
+            "password"
+          ],
+          "properties": {
+            "host": {
+              "type": "string"
+            },
+            "port": {
+              "type": "number",
+              "minimum": 3000
+            },
+            "username": {
+              "type": "string",
+              "minLenght": 2
+            },
+            "password": {
+              "type": "string",
+              "minLenght": 6
+            }
+          }
+        },
+        "cloud": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "bus"
+          ],
+          "properties": {
+            "bus": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "enabled",
+                "id",
+                "refresh"
+              ],
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                },
+                "id": {
+                  "type": "string",
+                  "enum": [
+                    "${spring.application.name}:${spring.profiles.active}:${random.uuid}"
+                  ]
+                },
+                "refresh": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "enabled"
+                  ],
+                  "properties": {
+                    "enabled": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

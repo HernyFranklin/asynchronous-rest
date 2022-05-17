@@ -1,0 +1,95 @@
+import groovy.json.JsonSlurper
+
+buildscript {
+
+    repositories {
+
+        jcenter()
+
+    }
+
+    dependencies {
+
+        classpath "cz.alenkacz.gradle:json-validator:1.2.0"
+        classpath "org.yaml:snakeyaml:1.16"
+
+    }
+
+}
+
+apply plugin: "cz.alenkacz.gradle.jsonvalidator"
+validateJson.jsonSchema = project.file("./src/main/resources/gradle/config-server-schema.json")
+validateJson.targetJsonFile = project.file("./src/main/resources/gradle/initial-configuration.json")
+
+task verificationJsonSchema() {
+
+    dependsOn validateJson
+
+}
+
+task gradleProperties() {
+
+    if (!project.file("./src/main/resources/gradle/config-server-register.json").exists()) {
+
+        return
+
+    }
+
+    def configServer = project.file("./src/main/resources/gradle/config-server-register.json").text
+    def jsonSlurper = new JsonSlurper()
+    def jsonConfigurationServer = jsonSlurper.parseText(configServer)
+    jsonConfigurationServer instanceof Map
+    def urlConfigServer = jsonConfigurationServer.CONFIGURATION_SERVER.URL
+    def request = new URL(urlConfigServer as String).getText()
+    project.file("./src/main/resources/gradle/initial-configuration.json").write request
+    String protocol = (urlConfigServer as String).split("/")[0]
+    String serverConfig = (urlConfigServer as String).split("/")[2].replace(" ", "")
+    String tmpProfile = (urlConfigServer as String).replace(rootProject.name, "").split("/")[3].split("-")[1]
+    String profileConfig = tmpProfile.replace(".json", "")
+    String urlGradleProperties = new URL(protocol + "//" + serverConfig + "/sonarqube-" + profileConfig + ".json" as String).getText()
+    def jsonGradleProperties = jsonSlurper.parseText(urlGradleProperties)
+    jsonGradleProperties instanceof Map
+    String sonarqubeServer = jsonGradleProperties.sonarqubeURL
+    String sonarqubeLogin = jsonGradleProperties.sonarLogin
+    def templateGradleProperties = new File("src/main/resources/template-gradle-properties")
+    def recoveryConfigurations = templateGradleProperties
+            .text
+            .replace("SONARQUBE_URL", sonarqubeServer)
+            .replace("SONARQUBE_LOGIN", sonarqubeLogin)
+    def gradlePropertiesGenerated = new File("./gradle.properties")
+    gradlePropertiesGenerated.text = recoveryConfigurations
+
+}
+
+task buildConfiguration() {
+
+    dependsOn(gradleProperties)
+    if (!project.file("./src/main/resources/gradle/config-server-register.json").exists()) {
+
+        return
+
+    }
+
+    def configServer = project.file("./src/main/resources/gradle/config-server-register.json").text
+    def jsonSlurper = new JsonSlurper()
+    def jsonConfigurationServer = jsonSlurper.parseText(configServer)
+    jsonConfigurationServer instanceof Map
+    def urlConfigServer = jsonConfigurationServer.CONFIGURATION_SERVER.URL
+    def request = new URL(urlConfigServer as String).getText()
+    project.file("./src/main/resources/gradle/initial-configuration.json").write request
+    def templateBootstrap = new File("src/main/resources/template-bootstrap")
+    String protocol = (urlConfigServer as String).split("/")[0]
+    String serverConfig = (urlConfigServer as String).split("/")[2].replace(" ", "")
+    String tmpProfile = (urlConfigServer as String).replace(rootProject.name, "").split("/")[3].split("-")[1]
+    String profileConfig = tmpProfile.replace(".json", "")
+    def recoveryParameter = templateBootstrap
+            .text
+            .replace("CONFIGURATION_SERVER_URL", protocol + "//" + serverConfig)
+            .replace("APPLICATION_NAME", rootProject.name)
+            .replace("PROFILE", profileConfig)
+    def bootstrapGenerated = new File("src/main/resources/bootstrap.yml")
+    bootstrapGenerated.text = recoveryParameter
+
+}
+
+buildConfiguration.finalizedBy verificationJsonSchema

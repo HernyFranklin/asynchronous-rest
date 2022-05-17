@@ -1,0 +1,9 @@
+spring:
+  cloud:
+    config:
+      uri: CONFIGURATION_SERVER_URL
+      failFast: true
+  application:
+    name: APPLICATION_NAME
+  profiles:
+      active: PROFILE

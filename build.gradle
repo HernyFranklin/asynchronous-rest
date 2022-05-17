@@ -1,0 +1,229 @@
+buildscript {
+
+    repositories {
+
+        mavenCentral()
+        maven {
+            url "https://plugins.gradle.org/m2/"
+        }
+        google()
+
+    }
+
+    dependencies {
+
+        classpath "net.sf.proguard:proguard-gradle:6.2.2"
+        classpath "net.sf.proguard:proguard-base:6.2.2"
+
+    }
+
+}
+
+plugins {
+
+    id "org.springframework.boot" version "2.6.7"
+    id "io.spring.dependency-management" version "1.0.11.RELEASE"
+    id "java"
+    id "groovy"
+    id "org.sonarqube" version "3.0"
+}
+
+group = "com.hf"
+version = "1.0.1"
+sourceCompatibility = "11"
+def name = "test"
+def profile = "dev"
+
+repositories {
+
+    mavenCentral()
+    flatDir {
+        dirs "libs"
+    }
+
+}
+
+dependencies {
+
+    implementation group: "org.modelmapper", name: "modelmapper", version: "3.1.0"
+    implementation group: "net.masterthought", name: "cucumber-reporting", version: "5.7.0"
+    implementation group: "javax.money", name: "money-api", version: "1.0.3"
+    implementation group: "com.networknt", name: "json-schema-validator", version: "1.0.67"
+    implementation group: "com.github.reinert", name: "jjschema", version: "1.16"
+    implementation group: "org.springframework.cloud", name: "spring-cloud-starter-config", version: "3.1.1"
+    implementation group: "org.springframework.cloud", name: "spring-cloud-starter-bootstrap", version: "3.1.1"
+    implementation group: "org.springframework.boot", name: "spring-boot-starter-actuator", version: "2.6.5"
+    implementation group: "org.json", name: "json", version: "20201115"
+    implementation group: 'com.fasterxml.jackson.core', name: 'jackson-databind', version: '2.13.2.1'
+    implementation group: 'com.fasterxml.jackson', name: 'jackson-bom', version: '2.13.2.20220324'
+    implementation 'org.springframework.boot:spring-boot-starter-webflux'
+    compileOnly "org.projectlombok:lombok"
+
+    implementation "com.jsoniter:jsoniter:0.9.19"
+    implementation "org.springframework.boot:spring-boot-starter"
+    implementation "org.springframework.boot:spring-boot-starter-web"
+    implementation "com.fasterxml.jackson.core:jackson-core:2.13.1"
+    implementation "com.fasterxml.jackson.core:jackson-annotations:2.13.1"
+    implementation group: 'org.springframework.boot', name: 'spring-boot-starter-validation', version: '2.6.5'
+    implementation "org.codehaus.groovy:groovy:3.0.10"
+    implementation("org.springdoc:springdoc-openapi-ui:1.6.6")
+
+    annotationProcessor "org.projectlombok:lombok"
+
+    testImplementation "io.cucumber:cucumber-java:6.7.0"
+    testImplementation "io.cucumber:cucumber-junit:6.7.0"
+    testImplementation("org.springframework.boot:spring-boot-starter-test") {
+
+        exclude group: "org.junit.vintage", module: "junit-vintage-engine"
+
+    }
+
+    testImplementation platform("org.spockframework:spock-bom:2.0-groovy-3.0")
+    testImplementation "org.spockframework:spock-core:2.0-groovy-3.0"
+    testImplementation "org.spockframework:spock-spring:2.0-groovy-3.0"
+    testImplementation "org.spockframework:spock-junit4:2.0-groovy-3.0"
+    testImplementation "org.hamcrest:hamcrest-core:2.2"
+
+    testRuntimeOnly "net.bytebuddy:byte-buddy:1.10.10"
+    testRuntimeOnly "org.objenesis:objenesis:3.1"
+    testRuntimeOnly "com.h2database:h2:1.4.197"
+
+    runtimeOnly group: "org.springframework.cloud", name: "spring-cloud-dependencies", version: "2021.0.1", ext: "pom"
+
+}
+
+configurations {
+
+    cucumberRuntime {
+
+        extendsFrom testImplementation
+
+    }
+
+    compileOnly {
+
+        extendsFrom annotationProcessor
+
+    }
+
+}
+
+task acceptanceTest() {
+
+    dependsOn assemble, testClasses
+    doLast {
+
+        javaexec {
+
+            main = "io.cucumber.core.cli.Main"
+            classpath = configurations.cucumberRuntime + sourceSets.main.output + sourceSets.test.output
+            args = ["--plugin", "json:build/reports/cucumber/report.json", "--plugin", "html:build/reports/cucumber/acceptance-test-report.html", "--glue", "steps", "src/test/resources/cucumber"]
+
+        }
+
+    }
+
+}
+
+task localReport() {
+
+    dependsOn classes, compileTestJava
+    doLast {
+
+        javaexec {
+
+            classpath = sourceSets.test.runtimeClasspath
+            main = "reports.LocalReport"
+
+        }
+
+    }
+
+}
+
+tasks.matching { task -> task.name.startsWith("spotbugs") }.forEach {
+
+    it.reports {
+
+        html.enabled = true
+        xml.enabled = false
+
+    }
+
+}
+
+tasks.withType(Copy).all {
+    duplicatesStrategy = 'exclude'
+}
+
+tasks.withType(Jar).all {
+    duplicatesStrategy = 'exclude'
+}
+tasks.withType(Zip) {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
+test {
+
+    useJUnitPlatform()
+    reports.html.destination = file("$buildDir/reports/unitTest")
+
+}
+
+task unitTest(type: Copy) {
+
+    dependsOn test
+    from("build/reports/unitTest/")
+    include "index.html"
+    destinationDir file("build/reports/")
+    rename "index.html", "unit-test-report.html"
+
+}
+
+task executeStaticTest { dependsOn sonarqube }
+
+task extractJar(type: Copy) {
+
+    def zipFile = file("${buildDir}/libs/${project.name}-${version}.jar")
+    def outputDir = file("${buildDir}/unpacked/")
+    from zipTree(zipFile)
+    into outputDir
+
+}
+
+sonarqube {
+
+    properties {
+
+        property "sonar.projectName", "test"
+        property "sonar.language", "java"
+        property "sonar.sources", "src/main"
+        property "sonar.buildbreaker.skip", "false"
+        property "sonar.working.directory", "${project.buildDir}/sonar"
+
+    }
+
+}
+
+sourceSets {
+    testintegration {
+        java.srcDir "$projectDir/src/testintegration/java"
+        resources.srcDir "$projectDir/src/testintegration/resources"
+        compileClasspath += main.output + test.output
+        runtimeClasspath += main.output + test.output
+    }
+}
+
+configurations {
+    testintegrationImplementation.extendsFrom testImplementation
+    testintegrationRuntime.extendsFrom testRuntime
+}
+
+task integrationTest(type: Test) {
+    useJUnitPlatform()
+    reports.html.destination = file("$buildDir/reports/integrationTest")
+    testClassesDirs = sourceSets.testintegration.output.classesDirs
+    classpath = sourceSets.testintegration.runtimeClasspath
+}
+
+check.dependsOn integrationTest
